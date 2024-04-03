@@ -32,6 +32,8 @@ typedef struct {
     QueueNode* tail;
 } Queue;
 
+static bool branching = false;
+
 /**
  * Inserts instruction (QueueNode*) from src Queue to dest Queue.
 */
@@ -54,34 +56,50 @@ void insert_instruction(Queue* src, Queue* dest) {
     dest -> tail -> next = NULL;
 }
 
+void move_instructions(Queue* src, Queue* dest, int W) {
+    for (int i = 0; i < W; i++) {
+        insert_instruction(src, dest);
+    }
+}
+
+void fetch_instructions(Queue* src, Queue* dest, int W) {
+    int i = 0;
+    while (i < W && !branching) {
+        insert_instruction(src, dest);
+        i++;
+    }
+}
+
 /**
  * Completes IF stage
 */
 void fetch(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, int W) {
-    for (int i = 0; i < W; i++) {
-        insert_instruction(if_queue, id_queue);
+    move_instructions(if_queue, id_queue, W);
+
+    if (!branching) {
+        fetch_instructions(instruction_queue, if_queue, W);
     }
 }
 
 /**
  * Completes ID stage
 */
-void decode() {
-
+void decode(Queue* id_queue, Queue* ex_queue, int W) {
+    move_instructions(id_queue, ex_queue, W);
 }
 
 /**
  * Completes EX stage
 */
-void execute() {
-
+void execute(Queue* ex_queue, Queue* mem_queue, int W) {
+    move_instructions(ex_queue, mem_queue, W);
 }
 
 /**
  * Completes MEM stage
 */
-void memory_access() {
-
+void memory_access(Queue* mem_queue, Queue* wb_queue, int W) {
+    move_instructions(mem_queue, wb_queue, W);
 }
 
 /**
