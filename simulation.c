@@ -82,8 +82,9 @@ void insert_instruction(Queue* src, Queue* dest) {
     } else {
         dest -> tail -> next = src -> head;
         dest -> tail = src -> head;
-        src -> head = src -> head -> next;
     }
+
+    src -> head = src -> head -> next;
 
     if (src -> head == NULL) {
         src -> tail = NULL;
@@ -92,10 +93,11 @@ void insert_instruction(Queue* src, Queue* dest) {
     dest -> tail -> next = NULL;
 }
 
-void move_instructions(Queue* src, Queue* dest, int W) {
-    for (int i = 0; i < W; i++) {
-        insert_instruction(src, dest);
-    }
+void move_instructions(Queue* src, Queue* dest) {
+    // for (int i = 0; i < W; i++) {
+    //     insert_instruction(src, dest);
+    // }
+    insert_instruction(src, dest);
 }
 
 void fetch_instructions(Queue* src, Queue* dest, int W) {
@@ -110,7 +112,7 @@ void fetch_instructions(Queue* src, Queue* dest, int W) {
  * Completes IF stage
 */
 void fetch(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, int W) {
-    move_instructions(if_queue, id_queue, W);
+    move_instructions(if_queue, id_queue);
 
     if (!branching) {
         fetch_instructions(instruction_queue, if_queue, W);
@@ -121,28 +123,35 @@ void fetch(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, int W) {
  * Completes ID stage
 */
 void decode(Queue* id_queue, Queue* ex_queue, int W) {
-    move_instructions(id_queue, ex_queue, W);
+    move_instructions(id_queue, ex_queue);
 }
 
 /**
  * Completes EX stage
 */
 void execute(Queue* ex_queue, Queue* mem_queue, int W) {
-    move_instructions(ex_queue, mem_queue, W);
+    move_instructions(ex_queue, mem_queue);
 }
 
 /**
  * Completes MEM stage
 */
 void memory_access(Queue* mem_queue, Queue* wb_queue, int W) {
-    move_instructions(mem_queue, wb_queue, W);
+    move_instructions(mem_queue, wb_queue);
 }
 
 /**
  * Completes WB stage
 */
-void writeback() {
-
+void writeback(Queue* wb_queue) {
+    // free head?
+    if (wb_queue->head != NULL) {
+        QueueNode* ptr = wb_queue->head;
+        // printf("Freeing node: %d\n", ptr->address);
+        wb_queue->head = ptr->next;
+        free(ptr);
+        ptr = NULL;
+    }
 }
 
 void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue, int W) {
@@ -161,7 +170,6 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
     for (int i = 0; i < W; i++) {
         writeback(wb_queue);
     }
-
 }
 
 void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W){
@@ -174,6 +182,8 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W)
     
     int time = 0;
     while (time < inst_count) {
+        // Note: May want to change condition to check if all queues are empty, since #cycles will be greater than instruction count
+        printf("====== New loop ======\n");
         complete_stages(instruction_queue, if_queue, id_queue, ex_queue, mem_queue, wb_queue, W);
         time++;
     }
@@ -268,11 +278,10 @@ int main(int argc, char* argv[]){
     // argv[2]: start_inst 
     // argv[3]: inst_count 
     // argv[4]: W 
-
 	if(argc >= 5) {
         int start_inst = atoi(argv[2]);
         int inst_count = atoi(argv[3]);
-        // int W = atoi(argv[4]);
+        int W = atoi(argv[4]);
 
         FILE* file;
 
@@ -298,7 +307,7 @@ int main(int argc, char* argv[]){
         //     current = current->next;
         // }
         
-        // simulation(instructions, start_inst, inst_count, W);
+        simulation(instructions, start_inst, inst_count, W);
 
         FreeQueue(instructions);
         fclose(file);
