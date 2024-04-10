@@ -33,6 +33,7 @@ typedef struct node QueueNode;
 typedef struct {
     QueueNode* head;
     QueueNode* tail;
+    int to_move; // # of nodes to move to next stage (<= W)
 } Queue;
 
 static bool branching = false;
@@ -41,6 +42,7 @@ Queue* create_empty_queue() {
     Queue* queue = (Queue*)malloc(sizeof(Queue));
     queue -> head = NULL;
     queue -> tail = NULL;
+    queue -> to_move = 0;
     return queue;
 }
 
@@ -68,6 +70,7 @@ void dumpQueue(Queue* q) {
         i++;
 		current = current->next;
 	}
+    printf("------------------------\n");
 }
 
 /**
@@ -94,10 +97,10 @@ void insert_instruction(Queue* src, Queue* dest) {
 }
 
 void move_instructions(Queue* src, Queue* dest) {
-    // for (int i = 0; i < W; i++) {
-    //     insert_instruction(src, dest);
-    // }
-    insert_instruction(src, dest);
+    for (int i = 0; i < src->to_move; i++) {
+        insert_instruction(src, dest);
+    }
+    src->to_move = 0;
 }
 
 void fetch_instructions(Queue* src, Queue* dest, int W) {
@@ -109,80 +112,198 @@ void fetch_instructions(Queue* src, Queue* dest, int W) {
 }
 
 /**
+ * Completes Instruction list to IF stage
+*/
+void initial_fetch(Queue* instruction_queue, int W) {
+    // move_instructions(if_queue, id_queue);
+
+    // fetch_instructions(instruction_queue, if_queue, W);
+    QueueNode* current = instruction_queue->head;
+    int x = 0;
+    while (x < W) {
+        if (current == NULL) {
+            break;
+        }
+        // Check for dependencies and hazards...
+        // If there exists a dependency/hazard, break loop.
+        // ...
+
+        // No problems. Increment x and move to next
+        current = current->next;
+        x++;
+    }
+
+    instruction_queue->to_move = x;
+    // Ignore branching for now, just handle instruction movement through queue
+    // if (!branching) {
+    //     fetch_instructions(instruction_queue, if_queue, W);
+    // }
+}
+
+/**
  * Completes IF stage
 */
-void fetch(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, int W) {
-    move_instructions(if_queue, id_queue);
+void fetch(Queue* if_queue, int W) {
+    // move_instructions(if_queue, id_queue);
 
-    if (!branching) {
-        fetch_instructions(instruction_queue, if_queue, W);
+    // fetch_instructions(instruction_queue, if_queue, W);
+    QueueNode* current = if_queue->head;
+    int x = 0;
+    while (x < W) {
+        if (current == NULL) {
+            break;
+        }
+        // Check for dependencies and hazards...
+        // If there exists a dependency/hazard, break loop.
+        // ...
+
+        // No problems. Increment x and move to next
+        current = current->next;
+        x++;
     }
+
+    if_queue->to_move = x;
 }
 
 /**
  * Completes ID stage
 */
-void decode(Queue* id_queue, Queue* ex_queue, int W) {
-    move_instructions(id_queue, ex_queue);
+void decode(Queue* id_queue, int W) {
+    // move_instructions(id_queue, ex_queue);
+
+    QueueNode* current = id_queue->head;
+    int x = 0;
+    while (x < W) {
+        if (current == NULL) {
+            break;
+        }
+        // Check for dependencies and hazards...
+        // If there exists a dependency/hazard, break loop.
+        // ...
+
+        // No problems. Increment x and move to next
+        current = current->next;
+        x++;
+    }
+
+    id_queue->to_move = x;
+
 }
 
 /**
  * Completes EX stage
 */
-void execute(Queue* ex_queue, Queue* mem_queue, int W) {
-    move_instructions(ex_queue, mem_queue);
+void execute(Queue* ex_queue, int W) {
+    // move_instructions(ex_queue, mem_queue);
+
+    QueueNode* current = ex_queue->head;
+    int x = 0;
+    while (x < W) {
+        if (current == NULL) {
+            break;
+        }
+        // Check for dependencies and hazards...
+        // If there exists a dependency/hazard, break loop.
+        // ...
+
+        // No problems. Increment x and move to next
+        current = current->next;
+        x++;
+    }
+
+    ex_queue->to_move = x;
+
 }
 
 /**
  * Completes MEM stage
 */
-void memory_access(Queue* mem_queue, Queue* wb_queue, int W) {
-    move_instructions(mem_queue, wb_queue);
+void memory_access(Queue* mem_queue, int W) {
+    // move_instructions(mem_queue, wb_queue);
+
+    QueueNode* current = mem_queue->head;
+    int x = 0;
+    while (x < W) {
+        if (current == NULL) {
+            break;
+        }
+        // Check for dependencies and hazards...
+        // If there exists a dependency/hazard, break loop.
+        // ...
+
+        // No problems. Increment x and move to next
+        current = current->next;
+        x++;
+    }
+
+    mem_queue->to_move = x;
 }
 
 /**
  * Completes WB stage
 */
-void writeback(Queue* wb_queue) {
-    // free head?
-    if (wb_queue->head != NULL) {
-        QueueNode* ptr = wb_queue->head;
-        // printf("Freeing node: %d\n", ptr->address);
-        wb_queue->head = ptr->next;
-        free(ptr);
-        ptr = NULL;
+void writeback(Queue* wb_queue, int W) {
+
+    QueueNode* current = wb_queue->head;
+    int x = 0;
+    while (x < W) {
+        if (current == NULL) {
+            break;
+        }
+        // Check for dependencies and hazards...
+        // If there exists a dependency/hazard, break loop.
+        // ...
+
+        // No problems. Increment x and move to next
+        current = current->next;
+        x++;
     }
+
+    wb_queue->to_move = x;
 }
 
 void print_process(Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue) {
-    printf("IF\n");
+    printf("========== IF ==========\n");
     dumpQueue(if_queue);
-    printf("ID\n");
+    printf("========== ID ==========\n");
     dumpQueue(id_queue);
-    printf("EX\n");
+    printf("========== EX ==========\n");
     dumpQueue(ex_queue);
-    printf("MEM\n");
+    printf("========== MEM ==========\n");
     dumpQueue(mem_queue);
-    printf("WB\n");
+    printf("========== WB ==========\n");
     dumpQueue(wb_queue);
 }
 
 void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue, int W) {
-    for (int i = 0; i < W; i++) {
-        fetch(instruction_queue, if_queue, id_queue, W);
-    } 
-    for (int i = 0; i < W; i++) {
-        decode(id_queue, ex_queue, W);
-    } 
-    for (int i = 0; i < W; i++) {
-        execute(ex_queue, mem_queue, W);
-    } 
-    for (int i = 0; i < W; i++) {
-        memory_access(mem_queue, wb_queue, W);
-    } 
-    for (int i = 0; i < W; i++) {
-        writeback(wb_queue);
+    // May have to change the order these are done? Not sure.
+    initial_fetch(instruction_queue, W);
+    fetch(if_queue, W);
+    decode(id_queue, W);
+    execute(ex_queue, W);
+    memory_access(mem_queue, W);
+    writeback(wb_queue, W);
+
+    // Move eligible instructions to next stage
+    // First, process writeback nodes
+    // NOTE: May have to change when this happens? causes an extra emtpy cycle to occur just to process this.
+    for (int i = 0; i < wb_queue->to_move; i++) {
+        if (wb_queue->head != NULL) {
+            QueueNode* ptr = wb_queue->head;
+            // printf("Freeing node: %d\n", ptr->address);
+            wb_queue->head = ptr->next;
+            free(ptr);
+            ptr = NULL;
+        }
     }
+    wb_queue->to_move = 0;
+
+    move_instructions(mem_queue, wb_queue);
+    move_instructions(ex_queue, mem_queue);
+    move_instructions(id_queue, ex_queue);
+    move_instructions(if_queue, id_queue);
+    move_instructions(instruction_queue, if_queue);
+
     print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
 }
 
@@ -194,14 +315,15 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W)
     Queue* mem_queue = create_empty_queue();
     Queue* wb_queue = create_empty_queue();
     
-    int time = 0;
-    while (time < inst_count) {
-        // Note: May want to change condition to check if all queues are empty, since #cycles will be greater than instruction count
-        printf("============ New loop ============\n");
+    int cycle = 0;
+    while (instruction_queue->head != NULL || if_queue->head != NULL || id_queue->head != NULL ||
+           ex_queue->head != NULL || mem_queue->head != NULL || wb_queue->head != NULL) {
+        cycle++;
+        printf("=================================== CYCLE %d ===================================\n", cycle);
         complete_stages(instruction_queue, if_queue, id_queue, ex_queue, mem_queue, wb_queue, W);
-        time++;
     }
 
+    printf("Finished after %d cycles.\n", cycle);
 
     FreeQueue(if_queue);
     FreeQueue(id_queue);
