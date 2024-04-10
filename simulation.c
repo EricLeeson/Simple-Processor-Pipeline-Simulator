@@ -154,6 +154,19 @@ void writeback(Queue* wb_queue) {
     }
 }
 
+void print_process(Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue) {
+    printf("IF\n");
+    dumpQueue(if_queue);
+    printf("ID\n");
+    dumpQueue(id_queue);
+    printf("EX\n");
+    dumpQueue(ex_queue);
+    printf("MEM\n");
+    dumpQueue(mem_queue);
+    printf("WB\n");
+    dumpQueue(wb_queue);
+}
+
 void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue, int W) {
     for (int i = 0; i < W; i++) {
         fetch(instruction_queue, if_queue, id_queue, W);
@@ -170,6 +183,7 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
     for (int i = 0; i < W; i++) {
         writeback(wb_queue);
     }
+    print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
 }
 
 void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W){
@@ -183,22 +197,17 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W)
     int time = 0;
     while (time < inst_count) {
         // Note: May want to change condition to check if all queues are empty, since #cycles will be greater than instruction count
-        printf("====== New loop ======\n");
+        printf("============ New loop ============\n");
         complete_stages(instruction_queue, if_queue, id_queue, ex_queue, mem_queue, wb_queue, W);
         time++;
     }
 
-    // Pointer error since they all share the same nodes. Nodes are freed in the main queue.
-    // FreeQueue(if_queue);
-    // FreeQueue(id_queue);
-    // FreeQueue(ex_queue);
-    // FreeQueue(mem_queue);
-    // FreeQueue(wb_queue);
-    free(if_queue);
-    free(id_queue);
-    free(ex_queue);
-    free(mem_queue);
-    free(wb_queue);
+
+    FreeQueue(if_queue);
+    FreeQueue(id_queue);
+    FreeQueue(ex_queue);
+    FreeQueue(mem_queue);
+    FreeQueue(wb_queue);
 
 }
 
