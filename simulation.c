@@ -36,6 +36,105 @@ typedef struct {
     int to_move; // # of nodes to move to next stage (<= W)
 } Queue;
 
+struct t_node{
+    int address;
+    struct t_node* left;
+    struct t_node* right;
+};
+
+typedef struct t_node treeNode;
+
+typedef struct {
+    treeNode* root;
+} BST;
+
+BST* create_tree() {
+    BST* tree = (BST*)malloc(sizeof(BST));
+    tree -> root = NULL;
+
+    return tree;
+}
+
+void free_tree_nodes(treeNode* node) {
+    if (node != NULL) {
+        free_tree_nodes(node -> left);
+        free_tree_nodes(node -> right);
+
+        free(node);
+    }
+}
+
+void free_tree(BST* tree) {
+    if (tree != NULL) {
+        free_tree_nodes(tree -> root);
+        free(tree);
+    }
+
+}
+
+treeNode* create_node(int address) {
+    treeNode* new_node = (treeNode*)malloc(sizeof(treeNode));
+
+    new_node -> address = address;
+    new_node -> left = NULL;
+    new_node -> right = NULL;
+
+    return new_node;
+}
+
+treeNode* insert_node(treeNode* parent, int address, BST* tree) {
+    if (parent == NULL) {
+        treeNode* new_node = create_node(address);
+        if (tree -> root == NULL) {
+            tree -> root = new_node;
+        }
+        return new_node;
+    }
+
+    if (address == parent -> address) {
+        // duplicates?
+    } else if (address < parent -> address) {
+        parent -> left = insert_node(parent -> left, address, tree);
+    } else if (address > parent -> address) {
+        parent -> right = insert_node(parent -> right, address, tree);
+    }
+
+    return parent;
+}
+
+treeNode* binary_search(treeNode* parent, int address) {
+    if (parent == NULL || parent -> address == address) {
+        return parent;
+    }
+
+    if (address < parent -> address) {
+        return binary_search(parent -> left, address);
+    } else if (address > parent -> address) {
+        return binary_search(parent -> right, address);
+    }
+
+    return NULL;
+}
+
+void satisfy_dependency(QueueNode* instruction, BST* satisfied_dependencies) {
+    insert_node(satisfied_dependencies -> root, instruction -> address, satisfied_dependencies);
+}
+
+bool dependencies_handled(QueueNode* instruction, BST* satisfied_dependencies) {
+    int dependency;
+    for (int i = 0; i < 5; i++) {
+        dependency = (instruction -> dependencies)[i];
+        if (dependency == 0) {
+            break;
+        }
+        if (!binary_search(satisfied_dependencies -> root, dependency)) {
+            return false; 
+        }
+    }
+
+    return true;
+}
+
 static bool branching = false;
 
 Queue* create_empty_queue() {
@@ -193,7 +292,7 @@ void decode(Queue* id_queue, int W) {
 /**
  * Completes EX stage
 */
-void execute(Queue* ex_queue, int W) {
+void execute(Queue* ex_queue, BST* satisfied_dependencies, int W) {
     // move_instructions(ex_queue, mem_queue);
 
     QueueNode* current = ex_queue->head;
@@ -202,11 +301,20 @@ void execute(Queue* ex_queue, int W) {
         if (current == NULL) {
             break;
         }
-        // Check for dependencies and hazards...
-        // If there exists a dependency/hazard, break loop.
-        // ...
 
-        // No problems. Increment x and move to next
+        if (dependencies_handled(current, satisfied_dependencies)) {
+            if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
+                satisfy_dependency(current, satisfied_dependencies);
+            }
+            // Check for dependencies and hazards...
+            // If there exists a dependency/hazard, break loop.
+            // ...
+
+            // No problems. Increment x and move to next
+        } else {
+            printf("Instruction %d dependencies not satisfied.\n", current -> address);
+        }
+        
         current = current->next;
         x++;
     }
@@ -218,7 +326,7 @@ void execute(Queue* ex_queue, int W) {
 /**
  * Completes MEM stage
 */
-void memory_access(Queue* mem_queue, int W) {
+void memory_access(Queue* mem_queue, BST* satisfied_dependencies,int W) {
     // move_instructions(mem_queue, wb_queue);
 
     QueueNode* current = mem_queue->head;
@@ -226,6 +334,10 @@ void memory_access(Queue* mem_queue, int W) {
     while (x < W) {
         if (current == NULL) {
             break;
+        }
+
+        if (current -> type == LOAD || current -> type == STORE) {
+            satisfy_dependency(current, satisfied_dependencies);
         }
         // Check for dependencies and hazards...
         // If there exists a dependency/hazard, break loop.
@@ -275,13 +387,13 @@ void print_process(Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem
     dumpQueue(wb_queue);
 }
 
-void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue, int W) {
+void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue, BST* satisfied_dependencies, int W) {
     // May have to change the order these are done? Not sure.
     initial_fetch(instruction_queue, W);
     fetch(if_queue, W);
     decode(id_queue, W);
-    execute(ex_queue, W);
-    memory_access(mem_queue, W);
+    execute(ex_queue, satisfied_dependencies, W);
+    memory_access(mem_queue, satisfied_dependencies, W);
     writeback(wb_queue, W);
 
     // Move eligible instructions to next stage
@@ -314,13 +426,15 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W)
     Queue* ex_queue = create_empty_queue();
     Queue* mem_queue = create_empty_queue();
     Queue* wb_queue = create_empty_queue();
+
+    BST* satisfied_dependencies = create_tree();
     
     int cycle = 0;
     while (instruction_queue->head != NULL || if_queue->head != NULL || id_queue->head != NULL ||
            ex_queue->head != NULL || mem_queue->head != NULL || wb_queue->head != NULL) {
         cycle++;
         printf("=================================== CYCLE %d ===================================\n", cycle);
-        complete_stages(instruction_queue, if_queue, id_queue, ex_queue, mem_queue, wb_queue, W);
+        complete_stages(instruction_queue, if_queue, id_queue, ex_queue, mem_queue, wb_queue, satisfied_dependencies, W);
     }
 
     printf("Finished after %d cycles.\n", cycle);
@@ -331,6 +445,7 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W)
     FreeQueue(mem_queue);
     FreeQueue(wb_queue);
 
+    free_tree(satisfied_dependencies);
 }
 
 /**
