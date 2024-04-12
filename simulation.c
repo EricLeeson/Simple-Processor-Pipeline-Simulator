@@ -26,7 +26,7 @@ struct node {
     int dependencies[5]; // up to 5 dependencies
     int n; // Number of dependencies
     struct node* next;
-}; 
+};
 typedef struct node QueueNode;
 
 // Instruction queue
@@ -128,18 +128,12 @@ bool dependencies_handled(QueueNode* instruction, BST* satisfied_dependencies) {
             break;
         }
         if (!binary_search(satisfied_dependencies -> root, dependency)) {
-            return false; 
+            return false;
         }
     }
 
     return true;
 }
-
-static int int_count = 0;
-static int float_count = 0;
-static int branch_count = 0;
-static int load_count = 0;
-static int store_count = 0;
 
 static bool branching = false;
 
@@ -258,6 +252,12 @@ void fetch(Queue* if_queue, int W) {
         if (current == NULL) {
             break;
         }
+
+        if (branching == true)
+            break;
+
+        if (current -> type == BRANCH)
+            branching = true;
         // Check for dependencies and hazards...
         // If there exists a dependency/hazard, break loop.
         // ...
@@ -312,6 +312,8 @@ void execute(Queue* ex_queue, BST* satisfied_dependencies, int W) {
             if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
                 satisfy_dependency(current, satisfied_dependencies);
             }
+
+
             // Check for dependencies and hazards...
             // If there exists a dependency/hazard, break loop.
             // ...
@@ -320,10 +322,15 @@ void execute(Queue* ex_queue, BST* satisfied_dependencies, int W) {
         } else {
             printf("Instruction %d dependencies not satisfied.\n", current -> address);
         }
-        
+
+        if (current -> type == BRANCH)
+                branching = false;
+
         current = current->next;
         x++;
     }
+
+
 
     ex_queue->to_move = x;
 
@@ -373,8 +380,6 @@ void writeback(Queue* wb_queue, int W) {
         // ...
 
         // No problems. Increment x and move to next
-        
-
         current = current->next;
         x++;
     }
@@ -395,29 +400,6 @@ void print_process(Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem
     dumpQueue(wb_queue);
 }
 
-void retire_instruction(QueueNode* instruction) {
-    InstructionType type = instruction -> type;
-    switch (type) {
-        case INTEGER_INSTRUCTION:
-            int_count++;
-            break;
-        case FLOATING_POINT:
-            float_count++;
-            break;
-        case BRANCH:
-            branch_count++;
-            break;
-        case LOAD:
-            load_count++;
-            break;
-        case STORE:
-            store_count++;
-            break;
-        default:
-            break;
-    }
-}
-
 void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue, BST* satisfied_dependencies, int W) {
     // May have to change the order these are done? Not sure.
     initial_fetch(instruction_queue, W);
@@ -427,8 +409,6 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
     memory_access(mem_queue, satisfied_dependencies, W);
     writeback(wb_queue, W);
 
-    print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
-
     // Move eligible instructions to next stage
     // First, process writeback nodes
     // NOTE: May have to change when this happens? causes an extra emtpy cycle to occur just to process this.
@@ -436,7 +416,6 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
         if (wb_queue->head != NULL) {
             QueueNode* ptr = wb_queue->head;
             // printf("Freeing node: %d\n", ptr->address);
-            retire_instruction(ptr);
             wb_queue->head = ptr->next;
             free(ptr);
             ptr = NULL;
@@ -449,6 +428,8 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
     move_instructions(id_queue, ex_queue);
     move_instructions(if_queue, id_queue);
     move_instructions(instruction_queue, if_queue);
+
+    print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
 }
 
 void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W){
@@ -460,7 +441,7 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W)
     Queue* wb_queue = create_empty_queue();
 
     BST* satisfied_dependencies = create_tree();
-    
+
     int cycle = 0;
     while (instruction_queue->head != NULL || if_queue->head != NULL || id_queue->head != NULL ||
            ex_queue->head != NULL || mem_queue->head != NULL || wb_queue->head != NULL) {
@@ -552,10 +533,10 @@ Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
 
 // Program's main function
 int main(int argc, char* argv[]){
-    // argv[1]: trace_file_name 
-    // argv[2]: start_inst 
-    // argv[3]: inst_count 
-    // argv[4]: W 
+    // argv[1]: trace_file_name
+    // argv[2]: start_inst
+    // argv[3]: inst_count
+    // argv[4]: W
 	if(argc >= 5) {
         int start_inst = atoi(argv[2]);
         int inst_count = atoi(argv[3]);
@@ -584,7 +565,7 @@ int main(int argc, char* argv[]){
         //     i++;
         //     current = current->next;
         // }
-        
+
         simulation(instructions, start_inst, inst_count, W);
 
         FreeQueue(instructions);
@@ -592,6 +573,6 @@ int main(int argc, char* argv[]){
     }
 
 	else printf("Insufficient number of arguments provided!\n");
-   
+
 	return 0;
 }
