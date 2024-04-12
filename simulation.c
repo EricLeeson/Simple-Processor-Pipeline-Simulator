@@ -135,6 +135,12 @@ bool dependencies_handled(QueueNode* instruction, BST* satisfied_dependencies) {
     return true;
 }
 
+static int int_count = 0;
+static int float_count = 0;
+static int branch_count = 0;
+static int load_count = 0;
+static int store_count = 0;
+
 static bool branching = false;
 
 Queue* create_empty_queue() {
@@ -223,6 +229,12 @@ void initial_fetch(Queue* instruction_queue, int W) {
         if (current == NULL) {
             break;
         }
+
+        if (branching == true)
+            break;
+
+        if (current -> type == BRANCH)
+            branching = true;
         // Check for dependencies and hazards...
         // If there exists a dependency/hazard, break loop.
         // ...
@@ -252,12 +264,6 @@ void fetch(Queue* if_queue, int W) {
         if (current == NULL) {
             break;
         }
-
-        if (branching == true)
-            break;
-
-        if (current -> type == BRANCH)
-            branching = true;
         // Check for dependencies and hazards...
         // If there exists a dependency/hazard, break loop.
         // ...
@@ -312,8 +318,6 @@ void execute(Queue* ex_queue, BST* satisfied_dependencies, int W) {
             if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
                 satisfy_dependency(current, satisfied_dependencies);
             }
-
-
             // Check for dependencies and hazards...
             // If there exists a dependency/hazard, break loop.
             // ...
@@ -329,8 +333,6 @@ void execute(Queue* ex_queue, BST* satisfied_dependencies, int W) {
         current = current->next;
         x++;
     }
-
-
 
     ex_queue->to_move = x;
 
@@ -380,6 +382,8 @@ void writeback(Queue* wb_queue, int W) {
         // ...
 
         // No problems. Increment x and move to next
+
+
         current = current->next;
         x++;
     }
@@ -400,6 +404,29 @@ void print_process(Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem
     dumpQueue(wb_queue);
 }
 
+void retire_instruction(QueueNode* instruction) {
+    InstructionType type = instruction -> type;
+    switch (type) {
+        case INTEGER_INSTRUCTION:
+            int_count++;
+            break;
+        case FLOATING_POINT:
+            float_count++;
+            break;
+        case BRANCH:
+            branch_count++;
+            break;
+        case LOAD:
+            load_count++;
+            break;
+        case STORE:
+            store_count++;
+            break;
+        default:
+            break;
+    }
+}
+
 void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue, BST* satisfied_dependencies, int W) {
     // May have to change the order these are done? Not sure.
     initial_fetch(instruction_queue, W);
@@ -409,6 +436,8 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
     memory_access(mem_queue, satisfied_dependencies, W);
     writeback(wb_queue, W);
 
+    print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
+
     // Move eligible instructions to next stage
     // First, process writeback nodes
     // NOTE: May have to change when this happens? causes an extra emtpy cycle to occur just to process this.
@@ -416,6 +445,7 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
         if (wb_queue->head != NULL) {
             QueueNode* ptr = wb_queue->head;
             // printf("Freeing node: %d\n", ptr->address);
+            retire_instruction(ptr);
             wb_queue->head = ptr->next;
             free(ptr);
             ptr = NULL;
@@ -428,8 +458,6 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
     move_instructions(id_queue, ex_queue);
     move_instructions(if_queue, id_queue);
     move_instructions(instruction_queue, if_queue);
-
-    print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
 }
 
 void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W){
