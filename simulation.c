@@ -230,11 +230,7 @@ void initial_fetch(Queue* instruction_queue, int W) {
             break;
         }
 
-        if (branching == true)
-            break;
 
-        if (current -> type == BRANCH)
-            branching = true;
         // Check for dependencies and hazards...
         // If there exists a dependency/hazard, break loop.
         // ...
@@ -264,6 +260,12 @@ void fetch(Queue* if_queue, int W) {
         if (current == NULL) {
             break;
         }
+
+        if (branching == true)
+            break;
+
+        if (current -> type == BRANCH)
+            branching = true;
         // Check for dependencies and hazards...
         // If there exists a dependency/hazard, break loop.
         // ...
@@ -318,6 +320,7 @@ void execute(Queue* ex_queue, BST* satisfied_dependencies, int W) {
             if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
                 satisfy_dependency(current, satisfied_dependencies);
             }
+
             // Check for dependencies and hazards...
             // If there exists a dependency/hazard, break loop.
             // ...
