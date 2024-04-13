@@ -332,7 +332,7 @@ void decode_to_execute(Queue* id_queue, BST* satisfied_dependencies, int W, int 
             // if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
             //     satisfy_dependency(current, satisfied_dependencies);
             // }
-            // printf("Instruction %d dependencies not satisfied.\n", current -> address);
+            printf("Instruction %ld dependencies not satisfied.\n", current -> address);
             break;
         }
 
@@ -375,7 +375,7 @@ void execute_to_memory(Queue* ex_queue, BST* satisfied_dependencies, int W, int 
             i++;
         }
 
-        if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
+        if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT || current -> type == BRANCH) {
             satisfy_dependency(current, satisfied_dependencies);
         }
 
@@ -574,7 +574,7 @@ Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
             //             Start at -2 so index lines up with dependencies array
             // Format: PC, Type, List[5]
             //     i = -2,  -1,    0-4
-            char temp[100];
+            char temp[256];
             strcpy(temp, line);
             char* token = strtok(temp, ",");
             while( token != NULL ) {
