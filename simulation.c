@@ -21,9 +21,9 @@ typedef enum {
 
 // Represents instruction
 struct node {
-    long int address;
+    long address;
     InstructionType type;
-    long int dependencies[4]; // up to 4 dependencies
+    long dependencies[4]; // up to 4 dependencies
     int n; // Number of dependencies
     struct node* next;
 };
@@ -37,7 +37,7 @@ typedef struct {
 } Queue;
 
 struct t_node{
-    long int address;
+    long address;
     struct t_node* left;
     struct t_node* right;
 };
@@ -72,7 +72,7 @@ void free_tree(BST* tree) {
 
 }
 
-treeNode* create_node(int address) {
+treeNode* create_node(long address) {
     treeNode* new_node = (treeNode*)malloc(sizeof(treeNode));
 
     new_node -> address = address;
@@ -82,7 +82,7 @@ treeNode* create_node(int address) {
     return new_node;
 }
 
-treeNode* insert_node(treeNode* parent, int address, BST* tree) {
+treeNode* insert_node(treeNode* parent, long address, BST* tree) {
     if (parent == NULL) {
         treeNode* new_node = create_node(address);
         if (tree -> root == NULL) {
@@ -102,7 +102,7 @@ treeNode* insert_node(treeNode* parent, int address, BST* tree) {
     return parent;
 }
 
-treeNode* binary_search(treeNode* parent, int address) {
+treeNode* binary_search(treeNode* parent, long address) {
     if (parent == NULL || parent -> address == address) {
         return parent;
     }
@@ -121,7 +121,7 @@ void satisfy_dependency(QueueNode* instruction, BST* satisfied_dependencies) {
 }
 
 bool dependencies_handled(QueueNode* instruction, BST* satisfied_dependencies) {
-    int dependency;
+    long dependency;
     for (int i = 0; i < 4; i++) {
         dependency = (instruction -> dependencies)[i];
         if (dependency == 0) {
@@ -518,7 +518,7 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
 
 }
 
-void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W){
+void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W, BST* satisfied_dependencies){
     // Create queue for each stage
     Queue* if_queue = create_empty_queue(W);
     Queue* id_queue = create_empty_queue(W);
@@ -526,7 +526,7 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W)
     Queue* mem_queue = create_empty_queue(W);
     Queue* wb_queue = create_empty_queue(W);
 
-    BST* satisfied_dependencies = create_tree();
+    // BST* satisfied_dependencies = create_tree();
 
     int cycle = 0;
     while (instruction_queue->head != NULL || if_queue->head != NULL || id_queue->head != NULL ||
@@ -544,13 +544,13 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W)
     FreeQueue(mem_queue);
     FreeQueue(wb_queue);
 
-    free_tree(satisfied_dependencies);
+    // free_tree(satisfied_dependencies);
 }
 
 /**
  * Parses trace and returns Queue of instructions
 */
-Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
+Queue* parse_trace(FILE* file, int start_inst, int inst_count, BST* satisfied_dependencies) {
     Queue* queue = create_empty_queue(0);
     char * line = NULL;
     size_t len = 0;
@@ -582,7 +582,7 @@ Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
                     token[strlen(token) -1] = '\0';
                 }
                 if (i == -2) {
-                    node->address = (long int)strtol(token, NULL, 16);
+                    node->address = (long)strtol(token, NULL, 16);
                 } else if (i == -1) {
                     int type = atoi(token);
                     if (type == 1) {
@@ -597,7 +597,7 @@ Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
                         node->type = STORE;
                     }
                 } else {
-                    node->dependencies[i] = (long int)strtol(token, NULL, 16);
+                    node->dependencies[i] = (long)strtol(token, NULL, 16);
                     node->n++;
                 }
                 i++;
@@ -611,6 +611,16 @@ Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
                 queue->tail->next = node;
                 queue->tail = node;
             }
+        } else {
+            // Must add skipped instructions.
+            // All data dependences on instructions before the trace starts should be ignored.
+            char temp[256];
+            strcpy(temp, line);
+            char* token = strtok(temp, ",");
+            // line always starts with the address
+            // printf("Inserting %ld...\n", (long)strtol(token, NULL, 16));
+            insert_node(satisfied_dependencies -> root, (long)strtol(token, NULL, 16), satisfied_dependencies);
+
         }
         current_instruction++;
         if (num_instructions >= inst_count) {
@@ -633,6 +643,11 @@ int main(int argc, char* argv[]){
         int inst_count = atoi(argv[3]);
         int W = atoi(argv[4]);
 
+        if (start_inst < 1) {
+            printf("Invalid start instruction (Start from 1).\n");
+            return 0;
+        }
+
         FILE* file;
 
         file = fopen(argv[1], "r");
@@ -641,7 +656,9 @@ int main(int argc, char* argv[]){
             return 0;
         }
 
-        Queue* instructions = parse_trace(file, start_inst, inst_count);
+        BST* satisfied_dependencies = create_tree();
+
+        Queue* instructions = parse_trace(file, start_inst, inst_count, satisfied_dependencies);
 
         //
         // !! Debug print. Remove later.
@@ -660,9 +677,9 @@ int main(int argc, char* argv[]){
         //     current = current->next;
         // }
 
+        simulation(instructions, start_inst, inst_count, W, satisfied_dependencies);
 
-        simulation(instructions, start_inst, inst_count, W);
-
+        free_tree(satisfied_dependencies);
         FreeQueue(instructions);
         fclose(file);
     }
