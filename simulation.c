@@ -21,9 +21,9 @@ typedef enum {
 
 // Represents instruction
 struct node {
-    int address;
+    long int address;
     InstructionType type;
-    int dependencies[4]; // up to 4 dependencies
+    long int dependencies[4]; // up to 4 dependencies
     int n; // Number of dependencies
     struct node* next;
 };
@@ -37,7 +37,7 @@ typedef struct {
 } Queue;
 
 struct t_node{
-    int address;
+    long int address;
     struct t_node* left;
     struct t_node* right;
 };
@@ -169,9 +169,12 @@ void dumpQueue(Queue* q) {
 	while (current != NULL) {
         printf("------------------------\n");
         printf("Instruction %d:\n", i);
-        printf("Address: %d\n", current->address);
+        printf("Address: %ld\n", current->address);
         printf("Type: %d\n", current->type);
         printf("# dependencies: %d\n", current->n);
+        for (int j = 0; j < current->n; j++) {
+            printf("Dependencies: %ld\n", current->dependencies[j]);
+        }
         i++;
 		current = current->next;
 	}
@@ -579,7 +582,7 @@ Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
                     token[strlen(token) -1] = '\0';
                 }
                 if (i == -2) {
-                    node->address = (int)strtol(token, NULL, 16);
+                    node->address = (long int)strtol(token, NULL, 16);
                 } else if (i == -1) {
                     int type = atoi(token);
                     if (type == 1) {
@@ -594,7 +597,7 @@ Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
                         node->type = STORE;
                     }
                 } else {
-                    node->dependencies[i] = (int)strtol(token, NULL, 16);
+                    node->dependencies[i] = (long int)strtol(token, NULL, 16);
                     node->n++;
                 }
                 i++;
@@ -648,14 +651,15 @@ int main(int argc, char* argv[]){
         // while (current != NULL) {
         //     printf("========== ==========\n");
         //     printf("%d\n", i);
-        //     printf("Address: %d\n", current->address);
+        //     printf("Address: %ld\n", current->address);
         //     printf("Type: %d\n", current->type);
         //     for (int j = 0; j < current->n; j++) {
-        //         printf("Dependencies: %d\n", current->dependencies[j]);
+        //         printf("Dependencies: %ld\n", current->dependencies[j]);
         //     }
         //     i++;
         //     current = current->next;
         // }
+
 
         simulation(instructions, start_inst, inst_count, W);
 
