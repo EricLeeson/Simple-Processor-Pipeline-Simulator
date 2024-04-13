@@ -23,7 +23,7 @@ typedef enum {
 struct node {
     int address;
     InstructionType type;
-    int dependencies[5]; // up to 5 dependencies
+    int dependencies[4]; // up to 4 dependencies
     int n; // Number of dependencies
     struct node* next;
 };
@@ -122,7 +122,7 @@ void satisfy_dependency(QueueNode* instruction, BST* satisfied_dependencies) {
 
 bool dependencies_handled(QueueNode* instruction, BST* satisfied_dependencies) {
     int dependency;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         dependency = (instruction -> dependencies)[i];
         if (dependency == 0) {
             break;
@@ -143,11 +143,11 @@ static int store_count = 0;
 
 static bool branching = false;
 
-Queue* create_empty_queue() {
+Queue* create_empty_queue(int w) {
     Queue* queue = (Queue*)malloc(sizeof(Queue));
     queue -> head = NULL;
     queue -> tail = NULL;
-    queue -> to_move = 0;
+    queue -> to_move = w;
     return queue;
 }
 
@@ -219,7 +219,7 @@ void fetch_instructions(Queue* src, Queue* dest, int W) {
 /**
  * Completes Instruction list to IF stage
 */
-void initial_fetch(Queue* instruction_queue, int W) {
+void initial_fetch(Queue* instruction_queue, int W, int num_moved_from_next) {
     // move_instructions(if_queue, id_queue);
 
     // fetch_instructions(instruction_queue, if_queue, W);
@@ -227,20 +227,30 @@ void initial_fetch(Queue* instruction_queue, int W) {
     int x = 0;
     while (x < W) {
         if (current == NULL) {
+            instruction_queue->to_move = W; // Set to W for num_moved_from_next for previous stage to work
+            break;
+        }
+        // Limited movement by # of moved in next stage
+        // (Some instructions are stalled, in that case we can't move current to next)
+        if (x >= num_moved_from_next) {
             break;
         }
 
-
-        // Check for dependencies and hazards...
-        // If there exists a dependency/hazard, break loop.
-        // ...
+        // initial_fetch moves from main instruction list into IF list.
+        // Therefore, if branching == true, then can't fetch.
+        // (the fetch_to_decode function moves instructions from IF to ID)
+        if (branching == true)
+            break;
+        if (current -> type == BRANCH)
+            branching = true;
 
         // No problems. Increment x and move to next
         current = current->next;
         x++;
+        instruction_queue->to_move = x;
     }
 
-    instruction_queue->to_move = x;
+
     // Ignore branching for now, just handle instruction movement through queue
     // if (!branching) {
     //     fetch_instructions(instruction_queue, if_queue, W);
@@ -250,7 +260,7 @@ void initial_fetch(Queue* instruction_queue, int W) {
 /**
  * Completes IF stage
 */
-void fetch(Queue* if_queue, int W) {
+void fetch_to_decode(Queue* if_queue, int W, int num_moved_from_next) {
     // move_instructions(if_queue, id_queue);
 
     // fetch_instructions(instruction_queue, if_queue, W);
@@ -258,115 +268,152 @@ void fetch(Queue* if_queue, int W) {
     int x = 0;
     while (x < W) {
         if (current == NULL) {
+            if_queue->to_move = W; // Set to W for num_moved_from_next for previous stage to work
             break;
         }
 
-        if (branching == true)
+        // Limited movement by # of moved in next stage
+        // (Some instructions are stalled, in that case we can't move current to next)
+        if (x >= num_moved_from_next) {
             break;
-
-        if (current -> type == BRANCH)
-            branching = true;
-        // Check for dependencies and hazards...
-        // If there exists a dependency/hazard, break loop.
-        // ...
+        }
 
         // No problems. Increment x and move to next
         current = current->next;
         x++;
+        if_queue->to_move = x;
     }
-
-    if_queue->to_move = x;
 }
 
 /**
  * Completes ID stage
 */
-void decode(Queue* id_queue, int W) {
+void decode_to_execute(Queue* id_queue, BST* satisfied_dependencies, int W, int num_moved_from_next) {
     // move_instructions(id_queue, ex_queue);
 
     QueueNode* current = id_queue->head;
     int x = 0;
     while (x < W) {
         if (current == NULL) {
+            id_queue->to_move = W; // Set to W for num_moved_from_next for previous stage to work
             break;
         }
-        // Check for dependencies and hazards...
-        // If there exists a dependency/hazard, break loop.
-        // ...
+
+        // Limited movement by # of moved in next stage
+        // (Some instructions are stalled, in that case we can't move current to next)
+        if (x >= num_moved_from_next) {
+            break;
+        }
+
+        // Structural Dependencies:
+        // Int/Float/Branch instruction can't execute in same cycle as another of its type.
+        // This must be checked in the ID stage, since this function determines which
+        // instructions will enter EX next cycle.
+        // For each new current (i.e., current after id_queue->head), check first x in list.
+        // If type is the same, break.
+        int i = 0;
+        QueueNode* previous = id_queue->head;
+        while (i < x) {
+            if ((current->type == INTEGER_INSTRUCTION || current->type == FLOATING_POINT ||
+                current->type == BRANCH) && previous->type == current->type) {
+                // Previous occurence of its type. Break.
+                break;
+            }
+            previous = previous->next;
+            i++;
+        }
+
+        // Data Hazards:
+        // Cannot move from ID to EX until all data dependencies are satisfied.
+        if (!dependencies_handled(current, satisfied_dependencies)) {
+            // if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
+            //     satisfy_dependency(current, satisfied_dependencies);
+            // }
+            // printf("Instruction %d dependencies not satisfied.\n", current -> address);
+            break;
+        }
 
         // No problems. Increment x and move to next
         current = current->next;
         x++;
+        id_queue->to_move = x;
     }
-
-    id_queue->to_move = x;
-
 }
 
 /**
  * Completes EX stage
 */
-void execute(Queue* ex_queue, BST* satisfied_dependencies, int W) {
+void execute_to_memory(Queue* ex_queue, BST* satisfied_dependencies, int W, int num_moved_from_next) {
     // move_instructions(ex_queue, mem_queue);
 
     QueueNode* current = ex_queue->head;
     int x = 0;
     while (x < W) {
         if (current == NULL) {
+            ex_queue->to_move = W; // Set to W for num_moved_from_next for previous stage to work
             break;
         }
 
-        if (dependencies_handled(current, satisfied_dependencies)) {
-            if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
-                satisfy_dependency(current, satisfied_dependencies);
+        // Limited movement by # of moved in next stage
+        // (Some instructions are stalled, in that case we can't move current to next)
+        if (x >= num_moved_from_next) {
+            break;
+        }
+
+        int i = 0;
+        QueueNode* previous = ex_queue->head;
+        while (i < x) {
+            if ((current->type == LOAD || current->type == STORE) &&
+                previous->type == current->type) {
+                // Previous occurence of its type. Break.
+                break;
             }
+            previous = previous->next;
+            i++;
+        }
 
-            // Check for dependencies and hazards...
-            // If there exists a dependency/hazard, break loop.
-            // ...
-
-            // No problems. Increment x and move to next
-        } else {
-            printf("Instruction %d dependencies not satisfied.\n", current -> address);
+        if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
+            satisfy_dependency(current, satisfied_dependencies);
         }
 
         if (current -> type == BRANCH)
-                branching = false;
+            branching = false;
 
         current = current->next;
         x++;
+        ex_queue->to_move = x;
     }
-
-    ex_queue->to_move = x;
-
 }
 
 /**
  * Completes MEM stage
 */
-void memory_access(Queue* mem_queue, BST* satisfied_dependencies,int W) {
+void memory_to_writeback(Queue* mem_queue, BST* satisfied_dependencies, int W, int num_moved_from_next) {
     // move_instructions(mem_queue, wb_queue);
 
     QueueNode* current = mem_queue->head;
     int x = 0;
     while (x < W) {
         if (current == NULL) {
+            mem_queue->to_move = W; // Set to W for num_moved_from_next for previous stage to work
+            break;
+        }
+
+        // Limited movement by # of moved in next stage
+        // (Some instructions are stalled, in that case we can't move current to next)
+        if (x >= num_moved_from_next) {
             break;
         }
 
         if (current -> type == LOAD || current -> type == STORE) {
             satisfy_dependency(current, satisfied_dependencies);
         }
-        // Check for dependencies and hazards...
-        // If there exists a dependency/hazard, break loop.
-        // ...
-
+        
         // No problems. Increment x and move to next
         current = current->next;
         x++;
+        mem_queue->to_move = x;
     }
-
-    mem_queue->to_move = x;
 }
 
 /**
@@ -378,20 +425,17 @@ void writeback(Queue* wb_queue, int W) {
     int x = 0;
     while (x < W) {
         if (current == NULL) {
+            wb_queue->to_move = W; // Set to W for num_moved_from_next for previous stage to work
             break;
         }
-        // Check for dependencies and hazards...
-        // If there exists a dependency/hazard, break loop.
-        // ...
 
         // No problems. Increment x and move to next
 
 
         current = current->next;
         x++;
+        wb_queue->to_move = x;
     }
-
-    wb_queue->to_move = x;
 }
 
 void print_process(Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue) {
@@ -431,15 +475,20 @@ void retire_instruction(QueueNode* instruction) {
 }
 
 void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue, BST* satisfied_dependencies, int W) {
-    // May have to change the order these are done? Not sure.
-    initial_fetch(instruction_queue, W);
-    fetch(if_queue, W);
-    decode(id_queue, W);
-    execute(ex_queue, satisfied_dependencies, W);
-    memory_access(mem_queue, satisfied_dependencies, W);
-    writeback(wb_queue, W);
+    // initial_fetch(instruction_queue, W);
+    // fetch_to_decode(if_queue, W);
+    // decode_to_execute(id_queue, satisfied_dependencies, W);
+    // execute_to_memory(ex_queue, satisfied_dependencies, W);
+    // memory_to_writeback(mem_queue, satisfied_dependencies, W);
+    // writeback(wb_queue, W);
 
-    print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
+    // Changed the order of processing in order to function with dependency checking.
+    writeback(wb_queue, W);
+    memory_to_writeback(mem_queue, satisfied_dependencies, W, wb_queue->to_move);
+    execute_to_memory(ex_queue, satisfied_dependencies, W, mem_queue->to_move);
+    decode_to_execute(id_queue, satisfied_dependencies, W, ex_queue->to_move);
+    fetch_to_decode(if_queue, W, id_queue->to_move);
+    initial_fetch(instruction_queue, W, if_queue->to_move);
 
     // Move eligible instructions to next stage
     // First, process writeback nodes
@@ -461,15 +510,18 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
     move_instructions(id_queue, ex_queue);
     move_instructions(if_queue, id_queue);
     move_instructions(instruction_queue, if_queue);
+
+    print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
+
 }
 
 void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W){
     // Create queue for each stage
-    Queue* if_queue = create_empty_queue();
-    Queue* id_queue = create_empty_queue();
-    Queue* ex_queue = create_empty_queue();
-    Queue* mem_queue = create_empty_queue();
-    Queue* wb_queue = create_empty_queue();
+    Queue* if_queue = create_empty_queue(W);
+    Queue* id_queue = create_empty_queue(W);
+    Queue* ex_queue = create_empty_queue(W);
+    Queue* mem_queue = create_empty_queue(W);
+    Queue* wb_queue = create_empty_queue(W);
 
     BST* satisfied_dependencies = create_tree();
 
@@ -496,7 +548,7 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W)
  * Parses trace and returns Queue of instructions
 */
 Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
-    Queue* queue = create_empty_queue();
+    Queue* queue = create_empty_queue(0);
     char * line = NULL;
     size_t len = 0;
     ssize_t read;
@@ -505,11 +557,16 @@ Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
     while ((read = getline(&line, &len, file)) != -1) {
         // Initialize Queue Node
         if (current_instruction >= start_inst) {
-            printf("Starting at instruction %d\n", current_instruction);
+            // printf("Starting at instruction %d\n", current_instruction);
             num_instructions++;
             QueueNode* node = malloc(sizeof(QueueNode));
             node->next = NULL;
             node->n = 0;
+            node->dependencies[0] = 0;
+            node->dependencies[1] = 0;
+            node->dependencies[2] = 0;
+            node->dependencies[3] = 0;
+
             int i = -2; // Don't know how many tokens, must count
             //             Start at -2 so index lines up with dependencies array
             // Format: PC, Type, List[5]
@@ -557,7 +614,7 @@ Queue* parse_trace(FILE* file, int start_inst, int inst_count) {
             break;
         }
     }
-    printf("Processed %d instructions\n", num_instructions);
+    // printf("Processed %d instructions\n", num_instructions);
     free(line);
     return queue;
 }
@@ -569,7 +626,7 @@ int main(int argc, char* argv[]){
     // argv[3]: inst_count
     // argv[4]: W
 	if(argc >= 5) {
-        int start_inst = atoi(argv[2]);
+        int start_inst = atoi(argv[2]); // !! Assumes that instruction count starts from 1 !!
         int inst_count = atoi(argv[3]);
         int W = atoi(argv[4]);
 
@@ -583,6 +640,9 @@ int main(int argc, char* argv[]){
 
         Queue* instructions = parse_trace(file, start_inst, inst_count);
 
+        //
+        // !! Debug print. Remove later.
+        //
         // struct node* current = instructions->head;
         // int i = 0;
         // while (current != NULL) {
