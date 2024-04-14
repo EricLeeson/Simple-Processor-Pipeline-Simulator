@@ -411,7 +411,7 @@ void memory_to_writeback(Queue* mem_queue, BST* satisfied_dependencies, int W, i
         if (current -> type == LOAD || current -> type == STORE) {
             satisfy_dependency(current, satisfied_dependencies);
         }
-        
+
         // No problems. Increment x and move to next
         current = current->next;
         x++;
@@ -543,6 +543,38 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W,
     printf("Branch instructions:\t%10d\t Percentage: %3.2f%%\n", branch_count, (double)branch_count*100 / inst_count);
     printf("Load instructions:\t%10d\t Percentage: %3.2f%%\n", load_count, (double)load_count*100 / inst_count);
     printf("Store instructions:\t%10d\t Percentage: %3.2f%%\n",store_count, (double)store_count*100 /inst_count);
+
+    printf("\nHistogram of retired instructions:\n");
+    printf("Int:    ");
+    for (int i = 0; i < int_count / (inst_count / 50); i++) {
+        printf("*");
+    }
+    printf("\n");
+
+    printf("Float:  ");
+    for (int i = 0; i < float_count / (inst_count / 50); i++) {
+        printf("*");
+    }
+    printf("\n");
+
+    printf("Branch: ");
+    for (int i = 0; i < branch_count / (inst_count / 50); i++) {
+        printf("*");
+    }
+    printf("\n");
+
+    printf("Load:   ");
+    for (int i = 0; i < load_count / (inst_count / 50); i++) {
+        printf("*");
+    }
+    printf("\n");
+
+    printf("Store:  ");
+    for (int i = 0; i < store_count / (inst_count / 50); i++) {
+        printf("*");
+    }
+    printf("\n");
+
 
     FreeQueue(if_queue);
     FreeQueue(id_queue);
