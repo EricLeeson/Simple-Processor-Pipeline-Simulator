@@ -538,6 +538,12 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W,
 
     printf("Finished after %d cycles.\n", cycle);
 
+    printf("Int instructions:\t%10d\tPercentage: %3.2f%%\n", int_count, (double)int_count*100 / inst_count);
+    printf("Float instructions:\t%10d\tPercentage: %3.2f%%\n", float_count, (double)float_count*100 / inst_count);
+    printf("Branch instructions:\t%10d\t Percentage: %3.2f%%\n", branch_count, (double)branch_count*100 / inst_count);
+    printf("Load instructions:\t%10d\t Percentage: %3.2f%%\n", load_count, (double)load_count*100 / inst_count);
+    printf("Store instructions:\t%10d\t Percentage: %3.2f%%\n",store_count, (double)store_count*100 /inst_count);
+
     FreeQueue(if_queue);
     FreeQueue(id_queue);
     FreeQueue(ex_queue);
