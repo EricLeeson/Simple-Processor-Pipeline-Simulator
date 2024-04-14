@@ -539,6 +539,9 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W,
         complete_stages(instruction_queue, if_queue, id_queue, ex_queue, mem_queue, wb_queue, satisfied_dependencies, W);
     }
 
+    // Account for extra cycle after WB for final instruction
+    cycle = cycle - 1;
+
     printf("Finished after %d cycles.\n", cycle);
 
     printf("Int instructions:\t%10d\tPercentage: %3.2f%%\n", int_count, (double)int_count*100 / inst_count);
