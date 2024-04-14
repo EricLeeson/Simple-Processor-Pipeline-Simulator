@@ -546,31 +546,31 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W,
 
     printf("\nHistogram of retired instructions:\n");
     printf("Int:    ");
-    for (int i = 0; i < int_count / (inst_count / 50); i++) {
+    for (int i = 0; i < int_count / ((double)inst_count / 50); i++) {
         printf("*");
     }
     printf("\n");
 
     printf("Float:  ");
-    for (int i = 0; i < float_count / (inst_count / 50); i++) {
+    for (int i = 0; i < float_count / ((double)inst_count / 50); i++) {
         printf("*");
     }
     printf("\n");
 
     printf("Branch: ");
-    for (int i = 0; i < branch_count / (inst_count / 50); i++) {
+    for (int i = 0; i < branch_count / ((double)inst_count / 50); i++) {
         printf("*");
     }
     printf("\n");
 
     printf("Load:   ");
-    for (int i = 0; i < load_count / (inst_count / 50); i++) {
+    for (int i = 0; i < load_count / ((double)inst_count / 50); i++) {
         printf("*");
     }
     printf("\n");
 
     printf("Store:  ");
-    for (int i = 0; i < store_count / (inst_count / 50); i++) {
+    for (int i = 0; i < store_count / ((double)inst_count / 50); i++) {
         printf("*");
     }
     printf("\n");
