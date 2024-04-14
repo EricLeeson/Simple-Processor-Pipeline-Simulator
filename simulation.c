@@ -315,15 +315,20 @@ void decode_to_execute(Queue* id_queue, BST* satisfied_dependencies, int W, int 
         // For each new current (i.e., current after id_queue->head), check first x in list.
         // If type is the same, break.
         int i = 0;
+        bool structural_hazard = false;
         QueueNode* previous = id_queue->head;
         while (i < x) {
             if ((current->type == INTEGER_INSTRUCTION || current->type == FLOATING_POINT ||
                 current->type == BRANCH) && previous->type == current->type) {
                 // Previous occurence of its type. Break.
+                structural_hazard = true;
                 break;
             }
             previous = previous->next;
             i++;
+        }
+        if (structural_hazard) {
+            break;
         }
 
         // Data Hazards:
@@ -332,7 +337,7 @@ void decode_to_execute(Queue* id_queue, BST* satisfied_dependencies, int W, int 
             // if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
             //     satisfy_dependency(current, satisfied_dependencies);
             // }
-            printf("Instruction %ld dependencies not satisfied.\n", current -> address);
+            // printf("Instruction %ld dependencies not satisfied.\n", current -> address);
             break;
         }
 
@@ -364,15 +369,20 @@ void execute_to_memory(Queue* ex_queue, BST* satisfied_dependencies, int W, int 
         }
 
         int i = 0;
+        bool structural_hazard = false;
         QueueNode* previous = ex_queue->head;
         while (i < x) {
             if ((current->type == LOAD || current->type == STORE) &&
                 previous->type == current->type) {
                 // Previous occurence of its type. Break.
+                structural_hazard = true;
                 break;
             }
             previous = previous->next;
             i++;
+        }
+        if (structural_hazard) {
+            break;
         }
 
         if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT || current -> type == BRANCH) {
@@ -478,13 +488,6 @@ void retire_instruction(QueueNode* instruction) {
 }
 
 void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue, Queue* ex_queue, Queue* mem_queue, Queue* wb_queue, BST* satisfied_dependencies, int W) {
-    // initial_fetch(instruction_queue, W);
-    // fetch_to_decode(if_queue, W);
-    // decode_to_execute(id_queue, satisfied_dependencies, W);
-    // execute_to_memory(ex_queue, satisfied_dependencies, W);
-    // memory_to_writeback(mem_queue, satisfied_dependencies, W);
-    // writeback(wb_queue, W);
-
     // Changed the order of processing in order to function with dependency checking.
     writeback(wb_queue, W);
     memory_to_writeback(mem_queue, satisfied_dependencies, W, wb_queue->to_move);
