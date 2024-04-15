@@ -252,12 +252,6 @@ void initial_fetch(Queue* instruction_queue, int W, int num_moved_from_next) {
         x++;
         instruction_queue->to_move = x;
     }
-
-
-    // Ignore branching for now, just handle instruction movement through queue
-    // if (!branching) {
-    //     fetch_instructions(instruction_queue, if_queue, W);
-    // }
 }
 
 /**
@@ -291,7 +285,7 @@ void fetch_to_decode(Queue* if_queue, int W, int num_moved_from_next) {
 /**
  * Completes ID stage
 */
-void decode_to_execute(Queue* id_queue, BST* satisfied_dependencies, int W, int num_moved_from_next) {
+void decode_to_execute(Queue* id_queue, BST* satisfied_dependencies, int W, int num_moved_from_next, Queue* ex_queue) {
     // move_instructions(id_queue, ex_queue);
 
     QueueNode* current = id_queue->head;
@@ -327,6 +321,26 @@ void decode_to_execute(Queue* id_queue, BST* satisfied_dependencies, int W, int 
             previous = previous->next;
             i++;
         }
+        // ID queue cleared, but must check the EX queue if any of instructions of the same type were stalled
+        QueueNode* ex_current = ex_queue->head;
+        i = 1;
+        while (i <= W) {
+            if (ex_current == NULL) {
+                break;
+            }
+            if (i > num_moved_from_next) {
+                // Check if same type of instruction was stalled
+                if ((current->type == INTEGER_INSTRUCTION || current->type == FLOATING_POINT ||
+                    current->type == BRANCH) && ex_current->type == current->type) {
+                    // A stall of the same type exists ahead, can't proceed.
+                    structural_hazard = true;
+                    break;
+                }
+            }
+            ex_current = ex_current->next;
+            i++;
+        }
+
         if (structural_hazard) {
             break;
         }
@@ -334,10 +348,6 @@ void decode_to_execute(Queue* id_queue, BST* satisfied_dependencies, int W, int 
         // Data Hazards:
         // Cannot move from ID to EX until all data dependencies are satisfied.
         if (!dependencies_handled(current, satisfied_dependencies)) {
-            // if (current -> type == INTEGER_INSTRUCTION || current -> type == FLOATING_POINT) {
-            //     satisfy_dependency(current, satisfied_dependencies);
-            // }
-            // printf("Instruction %ld dependencies not satisfied.\n", current -> address);
             break;
         }
 
@@ -351,7 +361,7 @@ void decode_to_execute(Queue* id_queue, BST* satisfied_dependencies, int W, int 
 /**
  * Completes EX stage
 */
-void execute_to_memory(Queue* ex_queue, BST* satisfied_dependencies, int W, int num_moved_from_next) {
+void execute_to_memory(Queue* ex_queue, BST* satisfied_dependencies, int W, int num_moved_from_next, Queue* mem_queue) {
     // move_instructions(ex_queue, mem_queue);
 
     QueueNode* current = ex_queue->head;
@@ -381,6 +391,26 @@ void execute_to_memory(Queue* ex_queue, BST* satisfied_dependencies, int W, int 
             previous = previous->next;
             i++;
         }
+        // EX queue cleared, but must check the MEM queue if any of instructions of the same type were stalled
+        QueueNode* mem_current = mem_queue->head;
+        i = 1;
+        while (i <= W) {
+            if (mem_current == NULL) {
+                break;
+            }
+            if (i > num_moved_from_next) {
+                // Check if same type of instruction was stalled
+                if ((current->type == LOAD || current->type == STORE) &&
+                    mem_current->type == current->type) {
+                    // A stall of the same type exists ahead, can't proceed.
+                    structural_hazard = true;
+                    break;
+                }
+            }
+            mem_current = mem_current->next;
+            i++;
+        }
+
         if (structural_hazard) {
             break;
         }
@@ -443,8 +473,6 @@ void writeback(Queue* wb_queue, int W) {
         }
 
         // No problems. Increment x and move to next
-
-
         current = current->next;
         x++;
         wb_queue->to_move = x;
@@ -491,8 +519,8 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
     // Changed the order of processing in order to function with dependency checking.
     writeback(wb_queue, W);
     memory_to_writeback(mem_queue, satisfied_dependencies, W, wb_queue->to_move);
-    execute_to_memory(ex_queue, satisfied_dependencies, W, mem_queue->to_move);
-    decode_to_execute(id_queue, satisfied_dependencies, W, ex_queue->to_move);
+    execute_to_memory(ex_queue, satisfied_dependencies, W, mem_queue->to_move, mem_queue);
+    decode_to_execute(id_queue, satisfied_dependencies, W, ex_queue->to_move, ex_queue);
     fetch_to_decode(if_queue, W, id_queue->to_move);
     initial_fetch(instruction_queue, W, if_queue->to_move);
 
@@ -528,8 +556,6 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W,
     Queue* ex_queue = create_empty_queue(W);
     Queue* mem_queue = create_empty_queue(W);
     Queue* wb_queue = create_empty_queue(W);
-
-    // BST* satisfied_dependencies = create_tree();
 
     int cycle = 0;
     while (instruction_queue->head != NULL || if_queue->head != NULL || id_queue->head != NULL ||
@@ -587,8 +613,6 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W,
     FreeQueue(ex_queue);
     FreeQueue(mem_queue);
     FreeQueue(wb_queue);
-
-    // free_tree(satisfied_dependencies);
 }
 
 /**
