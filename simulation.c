@@ -545,7 +545,7 @@ void complete_stages(Queue* instruction_queue, Queue* if_queue, Queue* id_queue,
     move_instructions(if_queue, id_queue);
     move_instructions(instruction_queue, if_queue);
 
-    print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
+    // print_process(if_queue, id_queue, ex_queue, mem_queue, wb_queue);
 
 }
 
@@ -561,7 +561,7 @@ void simulation(Queue* instruction_queue, int start_inst, int inst_count, int W,
     while (instruction_queue->head != NULL || if_queue->head != NULL || id_queue->head != NULL ||
            ex_queue->head != NULL || mem_queue->head != NULL || wb_queue->head != NULL) {
         cycle++;
-        printf("=================================== CYCLE %d ===================================\n", cycle);
+        // printf("=================================== CYCLE %d ===================================\n", cycle);
         complete_stages(instruction_queue, if_queue, id_queue, ex_queue, mem_queue, wb_queue, satisfied_dependencies, W);
     }
 
@@ -727,23 +727,6 @@ int main(int argc, char* argv[]){
         BST* satisfied_dependencies = create_tree();
 
         Queue* instructions = parse_trace(file, start_inst, inst_count, satisfied_dependencies);
-
-        //
-        // !! Debug print. Remove later.
-        //
-        // struct node* current = instructions->head;
-        // int i = 0;
-        // while (current != NULL) {
-        //     printf("========== ==========\n");
-        //     printf("%d\n", i);
-        //     printf("Address: %ld\n", current->address);
-        //     printf("Type: %d\n", current->type);
-        //     for (int j = 0; j < current->n; j++) {
-        //         printf("Dependencies: %ld\n", current->dependencies[j]);
-        //     }
-        //     i++;
-        //     current = current->next;
-        // }
 
         simulation(instructions, start_inst, inst_count, W, satisfied_dependencies);
 
